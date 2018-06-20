@@ -609,8 +609,10 @@ class Model(Container):
         self.loss_weights = loss_weights
         self.sample_weight_mode = sample_weight_mode
 
+        # -------------------   stage 1 对loss进行解析      -----------------------
         # Prepare loss functions.
         if isinstance(loss, dict):
+            # 判断loss中的key是否对应于输出
             for name in loss:
                 if name not in self.output_names:
                     raise ValueError('Unknown entry in loss '
@@ -618,7 +620,9 @@ class Model(Container):
                                      'Only expected the following keys: ' +
                                      str(self.output_names))
             loss_functions = []
+            # 每个输出只有一个loss函数与之对应
             for name in self.output_names:
+                # 判断是否所有的输出都有损失函数
                 if name not in loss:
                     warnings.warn('Output "' + name +
                                   '" missing from loss dictionary. '
@@ -628,6 +632,7 @@ class Model(Container):
                                   '" during training.', stacklevel=2)
                 loss_functions.append(losses.get(loss.get(name)))
         elif isinstance(loss, list):
+            # 如果loss是列表，那么需要和输出一一对应
             if len(loss) != len(self.outputs):
                 raise ValueError('When passing a list as loss, '
                                  'it should have one entry per model outputs. '
@@ -636,21 +641,29 @@ class Model(Container):
                                  str(loss))
             loss_functions = [losses.get(l) for l in loss]
         else:
+            # 每个输出赋予同一种loss
             loss_function = losses.get(loss)
             loss_functions = [loss_function for _ in range(len(self.outputs))]
+
         self.loss_functions = loss_functions
+
+        # 加入样本权重的loss函数
         weighted_losses = [_weighted_masked_objective(fn) for fn in loss_functions]
-        skip_target_indices = []
-        skip_target_weighing_indices = []
+
+        skip_target_indices = []  # 无损失函数的输出的索引
+        skip_target_weighing_indices = []  # 无损失函数的输出的索引
+
         self._feed_outputs = []
         self._feed_output_names = []
         self._feed_output_shapes = []
         self._feed_loss_fns = []
+
         for i in range(len(weighted_losses)):
             if weighted_losses[i] is None:
                 skip_target_indices.append(i)
                 skip_target_weighing_indices.append(i)
 
+        # masks = [None, None, ..., None] 和输出的个数相同
         # Prepare output masks.
         masks = self.compute_mask(self.inputs, mask=None)
         if masks is None:
@@ -658,8 +671,10 @@ class Model(Container):
         if not isinstance(masks, list):
             masks = [masks]
 
+        # loss weights表示各个输出的损失之间的主次关系
         # Prepare loss weights.
         if loss_weights is None:
+            # None表示每个都是1.
             loss_weights_list = [1. for _ in range(len(self.outputs))]
         elif isinstance(loss_weights, dict):
             for name in loss_weights:
@@ -669,9 +684,11 @@ class Model(Container):
                                      'Only expected the following keys: ' +
                                      str(self.output_names))
             loss_weights_list = []
+            # 从字典中度取权重，如果没有，则设置为1.
             for name in self.output_names:
                 loss_weights_list.append(loss_weights.get(name, 1.))
         elif isinstance(loss_weights, list):
+            # 如果是列表，那么必须和输出的个数相同
             if len(loss_weights) != len(self.outputs):
                 raise ValueError('When passing a list as loss_weights, '
                                  'it should have one entry per model output. '
@@ -684,6 +701,7 @@ class Model(Container):
                             str(loss_weights) +
                             ' - expected a list of dicts.')
 
+        # TODO(zzdxfei) work here
         # Prepare targets of model.
         self.targets = []
         self._feed_targets = []
