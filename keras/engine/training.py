@@ -653,6 +653,7 @@ class Model(Container):
         skip_target_indices = []  # 无损失函数的输出的索引
         skip_target_weighing_indices = []  # 无损失函数的输出的索引
 
+        # 存放target中创建的占位符的信息
         self._feed_outputs = []
         self._feed_output_names = []
         self._feed_output_shapes = []
@@ -701,12 +702,15 @@ class Model(Container):
                             str(loss_weights) +
                             ' - expected a list of dicts.')
 
-        # TODO(zzdxfei) work here
+        # -------------------   stage 2 构建targets占位符   -----------------------
         # Prepare targets of model.
-        self.targets = []
-        self._feed_targets = []
+        self.targets = []  # 存放输出个数个占位符
+        self._feed_targets = []  # 存放创建的占位符
+
+        # 对target_tensors进行解析
         if target_tensors is not None:
             if isinstance(target_tensors, list):
+                # 保证个数正确
                 if len(target_tensors) != len(self.outputs):
                     raise ValueError(
                         'When passing a list as `target_tensors`, '
@@ -721,6 +725,7 @@ class Model(Container):
                                          'dictionary: "' + name + '". '
                                          'Only expected the following keys: ' +
                                          str(self.output_names))
+                # 构造列表，如果没有，则为None
                 tmp_target_tensors = []
                 for name in self.output_names:
                     tmp_target_tensors.append(target_tensors.get(name, None))
@@ -728,34 +733,43 @@ class Model(Container):
             else:
                 raise TypeError('Expected `target_tensors` to be '
                                 'a list or dict, but got:', target_tensors)
+
+        # 创建target占位符
         for i in range(len(self.outputs)):
+            # 如果输出没有损失，则添加None
             if i in skip_target_indices:
                 self.targets.append(None)
             else:
                 shape = self._internal_output_shapes[i]
                 name = self.output_names[i]
+                # 如果存在target_tensors，则使用该列表赋值
                 if target_tensors is not None:
                     target = target_tensors[i]
                 else:
                     target = None
+
                 if target is None or K.is_placeholder(target):
                     if target is None:
                         target = K.placeholder(ndim=len(shape),
                                                name=name + '_target',
                                                sparse=K.is_sparse(self.outputs[i]),
                                                dtype=K.dtype(self.outputs[i]))
+                    # 同步添加target信息, 这些列表中存放的是创建的占位符的信息
                     self._feed_targets.append(target)
                     self._feed_outputs.append(self.outputs[i])
                     self._feed_output_names.append(name)
                     self._feed_output_shapes.append(shape)
                     self._feed_loss_fns.append(self.loss_functions[i])
                 else:
+                    # TODO(zzdxfei) ???
                     skip_target_weighing_indices.append(i)
                 self.targets.append(target)
 
+        # 添加样本权重的占位符
         # Prepare sample weights.
-        sample_weights = []
-        sample_weight_modes = []
+        sample_weights = []  # 存放样本权重矩阵占位符
+        sample_weight_modes = []  # 'temporal', None
+        # 对sample_weight_mode进行解析
         if isinstance(sample_weight_mode, dict):
             for name in sample_weight_mode:
                 if name not in self.output_names:
@@ -764,6 +778,7 @@ class Model(Container):
                                      name + '". '
                                      'Only expected the following keys: ' +
                                      str(self.output_names))
+
             for i, name in enumerate(self.output_names):
                 if i in skip_target_weighing_indices:
                     weight = None
@@ -774,13 +789,16 @@ class Model(Container):
                                          '" missing from sample_weight_modes '
                                          'dictionary')
                     if sample_weight_mode.get(name) == 'temporal':
+                        # 创建一个2维样本权重矩阵占位符
                         weight = K.placeholder(ndim=2,
                                                name=name + '_sample_weights')
                         sample_weight_modes.append('temporal')
                     else:
+                        # 创建一个1维样本权重矩阵占位符
                         weight = K.placeholder(ndim=1,
                                                name=name + '_sample_weights')
                         sample_weight_modes.append(None)
+                # 和某人的做法好相似
                 sample_weights.append(weight)
         elif isinstance(sample_weight_mode, list):
             if len(sample_weight_mode) != len(self.outputs):
@@ -823,11 +841,13 @@ class Model(Container):
                                           name=name + '_sample_weights'))
                         sample_weight_modes.append(None)
         self.sample_weight_modes = sample_weight_modes
-        self._feed_sample_weight_modes = []
+        self._feed_sample_weight_modes = []  # 和创建的target占位符对应
         for i in range(len(self.outputs)):
             if i not in skip_target_weighing_indices:
                 self._feed_sample_weight_modes.append(self.sample_weight_modes[i])
 
+        # -------------------   stage 3 处理metrics   -----------------------
+        # TODO(zzdxfei) work here
         # Prepare metrics.
         self.metrics = metrics or []
         self.weighted_metrics = weighted_metrics
