@@ -301,6 +301,7 @@ def _collect_metrics(metrics, output_names):
         return [[] for _ in output_names]
     if isinstance(metrics, list):
         # we then apply all metrics to all outputs.
+        # 如果是列表，将这些metrics赋值给所有的输出
         return [copy.copy(metrics) for _ in output_names]
     elif isinstance(metrics, dict):
         nested_metrics = []
@@ -702,10 +703,10 @@ class Model(Container):
                             str(loss_weights) +
                             ' - expected a list of dicts.')
 
-        # -------------------   stage 2 构建targets占位符   -----------------------
+        # -------------------   stage 2 构建标签占位符   -----------------------
         # Prepare targets of model.
-        self.targets = []  # 存放输出个数个占位符
-        self._feed_targets = []  # 存放创建的占位符
+        self.targets = []  # 存放标签个数个占位符
+        self._feed_targets = []  # 存放创建的标签的占位符
 
         # 对target_tensors进行解析
         if target_tensors is not None:
@@ -734,7 +735,7 @@ class Model(Container):
                 raise TypeError('Expected `target_tensors` to be '
                                 'a list or dict, but got:', target_tensors)
 
-        # 创建target占位符
+        # 创建标签占位符
         for i in range(len(self.outputs)):
             # 如果输出没有损失，则添加None
             if i in skip_target_indices:
@@ -754,7 +755,7 @@ class Model(Container):
                                                name=name + '_target',
                                                sparse=K.is_sparse(self.outputs[i]),
                                                dtype=K.dtype(self.outputs[i]))
-                    # 同步添加target信息, 这些列表中存放的是创建的占位符的信息
+                    # 同步添加信息, 这些列表中存放的是创建的占位符的信息
                     self._feed_targets.append(target)
                     self._feed_outputs.append(self.outputs[i])
                     self._feed_output_names.append(name)
@@ -841,13 +842,12 @@ class Model(Container):
                                           name=name + '_sample_weights'))
                         sample_weight_modes.append(None)
         self.sample_weight_modes = sample_weight_modes
-        self._feed_sample_weight_modes = []  # 和创建的target占位符对应
+        self._feed_sample_weight_modes = []  # 和创建的样本占位符对应
         for i in range(len(self.outputs)):
             if i not in skip_target_weighing_indices:
                 self._feed_sample_weight_modes.append(self.sample_weight_modes[i])
 
         # -------------------   stage 3 处理metrics   -----------------------
-        # TODO(zzdxfei) work here
         # Prepare metrics.
         self.metrics = metrics or []
         self.weighted_metrics = weighted_metrics
@@ -860,22 +860,37 @@ class Model(Container):
             for i in range(len(self.outputs)):
                 if i in skip_target_indices:
                     continue
+                # 标签
                 y_true = self.targets[i]
+                # 输出
                 y_pred = self.outputs[i]
+
+                # 损失计算函数
                 weighted_loss = weighted_losses[i]
+
+                # 样本权重
                 sample_weight = sample_weights[i]
+
                 mask = masks[i]
+
+                # 损失权重
                 loss_weight = loss_weights_list[i]
+
                 with K.name_scope(self.output_names[i] + '_loss'):
+                    # 计算损失
                     output_loss = weighted_loss(y_true, y_pred,
                                                 sample_weight, mask)
                 if len(self.outputs) > 1:
+                    # 记录损失信息
                     self.metrics_tensors.append(output_loss)
                     self.metrics_names.append(self.output_names[i] + '_loss')
+
+                # 更新网络总损失
                 if total_loss is None:
                     total_loss = loss_weight * output_loss
                 else:
                     total_loss += loss_weight * output_loss
+
             if total_loss is None:
                 if not self.losses:
                     raise ValueError('The model cannot be compiled '
@@ -890,11 +905,15 @@ class Model(Container):
 
         # List of same size as output_names.
         # contains tuples (metrics for output, names of metrics).
+        # 形成一个列表，列表中的每一项是对应的输出的metrics列表
         nested_metrics = _collect_metrics(metrics, self.output_names)
+        # 权重metrics
         nested_weighted_metrics = _collect_metrics(weighted_metrics, self.output_names)
+
         self.metrics_updates = []
         self.stateful_metric_names = []
         self.stateful_metric_functions = []
+
         with K.name_scope('metrics'):
             for i in range(len(self.outputs)):
                 if i in skip_target_indices:
@@ -907,6 +926,8 @@ class Model(Container):
                 output_weighted_metrics = nested_weighted_metrics[i]
 
                 def handle_metrics(metrics, weights=None):
+                    # TODO(zzdxfei) ???
+                    # 对两种类型的metrics进行区分
                     metric_name_prefix = 'weighted_' if weights is not None else ''
 
                     for metric in metrics:
@@ -950,6 +971,7 @@ class Model(Container):
                             metric_name = metric_name_prefix + metric_name
 
                         with K.name_scope(metric_name):
+                            # 计算metric
                             metric_result = weighted_metric_fn(y_true, y_pred,
                                                                weights=weights,
                                                                mask=masks[i])
@@ -974,12 +996,15 @@ class Model(Container):
                             self.stateful_metric_functions.append(metric_fn)
                             self.metrics_updates += metric_fn.updates
 
+                # 处理两种类型的metrics
                 handle_metrics(output_metrics)
                 handle_metrics(output_weighted_metrics, weights=weights)
 
+        # -------------------   stage 4 更新处理   -----------------------
         # Prepare gradient updates and state updates.
         self.total_loss = total_loss
         self.sample_weights = sample_weights
+        # 和输出保持对应
         self._feed_sample_weights = []
         for i in range(len(self.sample_weights)):
             if i not in skip_target_weighing_indices:
