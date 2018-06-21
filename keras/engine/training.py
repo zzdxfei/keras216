@@ -29,6 +29,9 @@ def _standardize_input_data(data, names, shapes=None,
                             exception_prefix=''):
     """Normalizes inputs and targets provided by users.
 
+    data可能是列表或者字典，对data进行解析，获得一个有序的列表。同时都
+    形状是否匹配进行检查。
+
     Users may pass data as a list of arrays, dictionary of arrays,
     or as a single array. We normalize this to an ordered list of
     arrays (same order as `names`), while checking that the provided
@@ -44,6 +47,7 @@ def _standardize_input_data(data, names, shapes=None,
         exception_prefix: String prefix used for exception formatting.
 
     # Returns
+        每个input对应于一个input array
         List of standardized input arrays (one array per model input).
 
     # Raises
@@ -60,6 +64,7 @@ def _standardize_input_data(data, names, shapes=None,
 
     if isinstance(data, dict):
         try:
+            # 按照names中的顺序构造data
             data = [data[x].values if data[x].__class__.__name__ == 'DataFrame' else data[x] for x in names]
         except KeyError as e:
             raise ValueError(
@@ -74,7 +79,8 @@ def _standardize_input_data(data, names, shapes=None,
         data = data.values if data.__class__.__name__ == 'DataFrame' else data
         data = [data]
     data = [np.expand_dims(x, 1) if x is not None and x.ndim == 1 else x for x in data]
-
+    
+    # 已经将data转化为一个列表
     if len(data) != len(names):
         if data and hasattr(data[0], 'shape'):
             raise ValueError(
@@ -97,6 +103,7 @@ def _standardize_input_data(data, names, shapes=None,
                 ': data should be a Numpy array, or list/dict of '
                 'Numpy arrays. Found: ' + str(data)[:200] + '...')
         elif len(names) == 1:
+            # 将多个data合并成一个数组
             data = [np.asarray(data)]
 
     # Check shapes compatibility.
@@ -139,8 +146,11 @@ def _standardize_sample_or_class_weights(x_weight, output_names, weight_type):
     # Raises
         ValueError: In case of invalid user-provided argument.
     """
+    # 默认返回[None, ...]
     if x_weight is None or len(x_weight) == 0:
         return [None for _ in output_names]
+
+    # 处理仅有一个输出的情况
     if len(output_names) == 1:
         if isinstance(x_weight, list) and len(x_weight) == 1:
             return x_weight
@@ -148,6 +158,8 @@ def _standardize_sample_or_class_weights(x_weight, output_names, weight_type):
             return [x_weight[output_names[0]]]
         else:
             return [x_weight]
+
+    # 列表必须满足长度相同
     if isinstance(x_weight, list):
         if len(x_weight) != len(output_names):
             raise ValueError('Provided `' + weight_type + '` was a list of ' +
@@ -157,12 +169,15 @@ def _standardize_sample_or_class_weights(x_weight, output_names, weight_type):
                              'You should provide one `' + weight_type + '`'
                              'array per model output.')
         return x_weight
+
+    # 由字典转换为列表
     if isinstance(x_weight, dict):
         x_weights = []
         for name in output_names:
             x_weights.append(x_weight.get(name))
         return x_weights
     else:
+        # 其他类型报错
         raise TypeError('The model has multiple outputs, so `' +
                         weight_type + '` '
                         'should be either a list or a dict. '
@@ -475,10 +490,12 @@ def _standardize_weights(y, sample_weight=None, class_weight=None,
         ValueError: In case of invalid user-provided arguments.
     """
     if sample_weight_mode is not None:
+        # None or temporal
         if sample_weight_mode != 'temporal':
             raise ValueError('"sample_weight_mode '
                              'should be None or "temporal". '
                              'Found: ' + str(sample_weight_mode))
+        # 对于temporal的情况，y 必须是3维的
         if len(y.shape) < 3:
             raise ValueError('Found a sample_weight array for '
                              'an input with shape ' +
@@ -487,12 +504,15 @@ def _standardize_weights(y, sample_weight=None, class_weight=None,
                              'sample_weight_mode="temporal") is restricted to '
                              'outputs that are at least 3D, i.e. that have '
                              'a time dimension.')
+
+        # 对于temporal的情况，sample_weight必须是2维的
         if sample_weight is not None and len(sample_weight.shape) != 2:
             raise ValueError('Found a sample_weight array with shape ' +
                              str(sample_weight.shape) + '. '
                              'In order to use timestep-wise sample weighting, '
                              'you should pass a 2D sample_weight array.')
     else:
+        # 对于存在sample_weight的情况，其形状必须是1维的
         if sample_weight is not None and len(sample_weight.shape) != 1:
             raise ValueError('Found a sample_weight array with shape ' +
                              str(sample_weight.shape) + '. '
@@ -504,12 +524,14 @@ def _standardize_weights(y, sample_weight=None, class_weight=None,
                              'sample_weight array is 1D.')
 
     if sample_weight is not None:
+        # 对于用户提供了sample_weight的情况
         if len(sample_weight.shape) > len(y.shape):
             raise ValueError('Found a sample_weight with shape' +
                              str(sample_weight.shape) + '.'
                              'Expected sample_weight with rank '
                              'less than or equal to ' + str(len(y.shape)))
 
+        # y的前面形状必须和sample_weight匹配
         if y.shape[:sample_weight.ndim] != sample_weight.shape:
             raise ValueError('Found a sample_weight array with shape ' +
                              str(sample_weight.shape) + ' for an input with shape ' +
@@ -521,15 +543,18 @@ def _standardize_weights(y, sample_weight=None, class_weight=None,
             raise ValueError('`class_weight` not supported for '
                              '3+ dimensional targets.')
         if y.shape[1] > 1:
+            # 获得样本的标签
             y_classes = np.argmax(y, axis=1)
         elif y.shape[1] == 1:
             y_classes = np.reshape(y, y.shape[0])
         else:
             y_classes = y
 
+        # 对于每个样本，根据类别赋予相同的权重
         weights = np.asarray([class_weight[cls] for cls in y_classes
                               if cls in class_weight])
 
+        # 长度必须相同
         if len(weights) != len(y_classes):
             # subtract the sets to pick all missing classes
             existing_classes = set(y_classes)
@@ -543,6 +568,7 @@ def _standardize_weights(y, sample_weight=None, class_weight=None,
         if sample_weight_mode is None:
             return np.ones((y.shape[0],), dtype=K.floatx())
         else:
+            # 对应于temporal
             return np.ones((y.shape[0], y.shape[1]), dtype=K.floatx())
 
 
@@ -1047,6 +1073,7 @@ class Model(Container):
             raise RuntimeError('You must compile your model before using it.')
         self._check_trainable_weights_consistency()
         if self.train_function is None:
+            # 构建inputs列表
             inputs = self._feed_inputs + self._feed_targets + self._feed_sample_weights
             if self.uses_learning_phase and not isinstance(K.learning_phase(), int):
                 inputs += [K.learning_phase()]
@@ -1522,6 +1549,7 @@ class Model(Container):
                                'Use `model.compile(optimizer, loss)`.')
 
         output_shapes = []
+        # 对于每一个内部构建的输出
         for output_shape, loss_fn in zip(self._feed_output_shapes, self._feed_loss_fns):
             if loss_fn is losses.sparse_categorical_crossentropy:
                 output_shapes.append(output_shape[:-1] + (1,))
@@ -1534,8 +1562,11 @@ class Model(Container):
                 output_shapes.append(None)
             else:
                 output_shapes.append(output_shape)
+
         # `check_batch_axis` is set to False since `x` may contain multiple batches
         #  and in general `x[0].shape[0] != self._feed_input_shapes[0][0]`
+
+        # 分别对x, y, sample_weight, class_weight进行解析
         x = _standardize_input_data(x, self._feed_input_names,
                                     self._feed_input_shapes,
                                     check_batch_axis=False,
@@ -1544,10 +1575,13 @@ class Model(Container):
                                     output_shapes,
                                     check_batch_axis=False,
                                     exception_prefix='target')
+
         sample_weights = _standardize_sample_weights(sample_weight,
                                                      self._feed_output_names)
         class_weights = _standardize_class_weights(class_weight,
                                                    self._feed_output_names)
+
+        # 计算sample_weights
         sample_weights = [_standardize_weights(ref, sw, cw, mode)
                           for (ref, sw, cw, mode)
                           in zip(y, sample_weights, class_weights, self._feed_sample_weight_modes)]
@@ -1688,12 +1722,14 @@ class Model(Container):
             raise ValueError('If fitting from data tensors, '
                              'you should specify the `steps_per_epoch` '
                              'argument.')
+
         # Validate user data.
         x, y, sample_weights = self._standardize_user_data(
             x, y,
             sample_weight=sample_weight,
             class_weight=class_weight,
             batch_size=batch_size)
+
         # Prepare validation data.
         do_validation = False
         if validation_data:
@@ -1701,6 +1737,7 @@ class Model(Container):
             if len(validation_data) == 2:
                 val_x, val_y = validation_data
                 val_sample_weight = None
+            # 如果提供了3个参数，则最后一个是sample_weight
             elif len(validation_data) == 3:
                 val_x, val_y, val_sample_weight = validation_data
             else:
@@ -1710,45 +1747,54 @@ class Model(Container):
                                  'items, however it contains %d items' %
                                  len(validation_data))
 
+            # 解析验证数据
             val_x, val_y, val_sample_weights = self._standardize_user_data(
                 val_x, val_y,
                 sample_weight=val_sample_weight,
                 batch_size=batch_size)
+
             if self.uses_learning_phase and not isinstance(K.learning_phase(), int):
+                # 多个列表连接成一个列表
                 val_ins = val_x + val_y + val_sample_weights + [0.]
             else:
                 val_ins = val_x + val_y + val_sample_weights
-
         elif validation_split and 0. < validation_split < 1.:
             do_validation = True
+            # 直接对数据进行分割，非随机分割
             if hasattr(x[0], 'shape'):
                 split_at = int(x[0].shape[0] * (1. - validation_split))
             else:
                 split_at = int(len(x[0]) * (1. - validation_split))
+            # 执行数据分割
             x, val_x = (_slice_arrays(x, 0, split_at), _slice_arrays(x, split_at))
             y, val_y = (_slice_arrays(y, 0, split_at), _slice_arrays(y, split_at))
             sample_weights, val_sample_weights = (
                 _slice_arrays(sample_weights, 0, split_at),
                 _slice_arrays(sample_weights, split_at))
+
             if self.uses_learning_phase and not isinstance(K.learning_phase(), int):
                 val_ins = val_x + val_y + val_sample_weights + [0.]
             else:
                 val_ins = val_x + val_y + val_sample_weights
-
         elif validation_steps:
             do_validation = True
             if self.uses_learning_phase and not isinstance(K.learning_phase(), int):
                 val_ins = [0.]
 
         # Prepare input arrays and training function.
+        # 训练数据列表
         if self.uses_learning_phase and not isinstance(K.learning_phase(), int):
             ins = x + y + sample_weights + [1.]
         else:
             ins = x + y + sample_weights
+
+        # 构造训练函数
+        # TODO(zzdxfei) what is?
         self._make_train_function()
         f = self.train_function
 
         # Prepare display labels.
+        # 显示哪些数据
         out_labels = self.metrics_names
 
         if do_validation:
@@ -1761,6 +1807,7 @@ class Model(Container):
             val_ins = []
 
         # Delegate logic to `_fit_loop`.
+        # TODO(zzdxfei) work here
         return self._fit_loop(f, ins, out_labels=out_labels,
                               batch_size=batch_size, epochs=epochs,
                               verbose=verbose, callbacks=callbacks,
