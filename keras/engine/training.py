@@ -1261,6 +1261,7 @@ class Model(Container):
             cbk.validation_data = val_ins
 
         # To prevent a slowdown, we find beforehand the arrays that need conversion.
+        # 训练需要的数据
         feed = self._feed_inputs + self._feed_targets + self._feed_sample_weights
         indices_for_conversion_to_dense = []
         for i in range(len(feed)):
@@ -1274,13 +1275,16 @@ class Model(Container):
             callbacks.on_epoch_begin(epoch)
             epoch_logs = {}
             if steps_per_epoch is not None:
+                # 执行steps_per_epoch次训练
                 for step_index in range(steps_per_epoch):
                     batch_logs = {}
                     batch_logs['batch'] = step_index
                     batch_logs['size'] = 1
                     callbacks.on_batch_begin(step_index, batch_logs)
+                    # 训练输出
                     outs = f(ins)
 
+                    # 记录训练log
                     if not isinstance(outs, list):
                         outs = [outs]
                     for l, o in zip(out_labels, outs):
@@ -1291,21 +1295,25 @@ class Model(Container):
                         break
 
                 if do_validation:
+                    # 执行验证
                     val_outs = self._test_loop(val_f, val_ins,
                                                batch_size=batch_size,
                                                steps=validation_steps,
                                                verbose=0)
+                    # 记录验证log
                     if not isinstance(val_outs, list):
                         val_outs = [val_outs]
                     # Same labels assumed.
                     for l, o in zip(out_labels, val_outs):
                         epoch_logs['val_' + l] = o
             else:
+                # 仅对每个batch_size块中的数据进行随机
                 if shuffle == 'batch':
                     index_array = _batch_shuffle(index_array, batch_size)
                 elif shuffle:
                     np.random.shuffle(index_array)
 
+                # 获得一个列表，每一项为batch的索引范围
                 batches = _make_batches(num_train_samples, batch_size)
                 for batch_index, (batch_start, batch_end) in enumerate(batches):
                     batch_ids = index_array[batch_start:batch_end]
@@ -1326,7 +1334,10 @@ class Model(Container):
                     for i in indices_for_conversion_to_dense:
                         ins_batch[i] = ins_batch[i].toarray()
 
+                    # 训练输出
                     outs = f(ins_batch)
+
+                    # 记录训练log
                     if not isinstance(outs, list):
                         outs = [outs]
                     for l, o in zip(out_labels, outs):
@@ -1338,9 +1349,11 @@ class Model(Container):
 
                     if batch_index == len(batches) - 1:  # Last batch.
                         if do_validation:
+                            # 验证输出
                             val_outs = self._test_loop(val_f, val_ins,
                                                        batch_size=batch_size,
                                                        verbose=0)
+                            # 几率验证输出
                             if not isinstance(val_outs, list):
                                 val_outs = [val_outs]
                             # Same labels assumed.
@@ -1807,7 +1820,6 @@ class Model(Container):
             val_ins = []
 
         # Delegate logic to `_fit_loop`.
-        # TODO(zzdxfei) work here
         return self._fit_loop(f, ins, out_labels=out_labels,
                               batch_size=batch_size, epochs=epochs,
                               verbose=verbose, callbacks=callbacks,
