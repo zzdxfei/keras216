@@ -1517,16 +1517,20 @@ class Container(Layer):
         self._per_input_updates = {}
 
         # Container-specific properties.
+        # inputs属性
         if isinstance(inputs, (list, tuple)):
             self.inputs = list(inputs)  # Tensor or list of tensors.
         else:
             self.inputs = [inputs]
+
+        # outputs属性
         if isinstance(outputs, (list, tuple)):
             self.outputs = list(outputs)
         else:
             self.outputs = [outputs]
 
         # Check for redundancy in inputs.
+        # 保证输入的唯一性
         if len(set(self.inputs)) != len(self.inputs):
             raise ValueError('The list of inputs passed to the model '
                              'is redundant. '
@@ -1534,11 +1538,14 @@ class Container(Layer):
                              ' Found: ' + str(self.inputs))
 
         # Check for redundancy in outputs.
+        # 输出的唯一性
         if len(set(self.outputs)) != len(self.outputs):
             warnings.warn('The list of outputs passed to the model '
                           'is redundant. '
                           'All outputs should only appear once.'
                           ' Found: ' + str(self.outputs))
+
+        # TODO(zzdxfei) work here
 
         # List of initial layers (1 to 1 mapping with self.inputs,
         # hence the same layer might appear twice)
