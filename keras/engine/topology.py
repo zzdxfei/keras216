@@ -1545,18 +1545,19 @@ class Container(Layer):
                           'All outputs should only appear once.'
                           ' Found: ' + str(self.outputs))
 
-        # TODO(zzdxfei) work here
-
         # List of initial layers (1 to 1 mapping with self.inputs,
         # hence the same layer might appear twice)
+        # 输入
         self.input_layers = []
         self.input_layers_node_indices = []
         self.input_layers_tensor_indices = []
         # list of layers (1 to 1 mapping with self.inputs,
         # hence the same layer might appear twice)
+        # 输出
         self.output_layers = []
         self.output_layers_node_indices = []
         self.output_layers_tensor_indices = []
+
         # all layers in order of horizontal graph traversal.
         # Entries are unique. Includes input and output layers.
         self.layers = []
@@ -1676,6 +1677,8 @@ class Container(Layer):
         layers_depths = {}  # dict {layer: depth value}
         layer_indices = {}  # dict {layer: index in traversal}
         nodes_in_decreasing_depth = []
+
+        # TODO(zzdxfei) work here
 
         def build_map_of_graph(tensor, finished_nodes, nodes_in_progress,
                                layer=None, node_index=None, tensor_index=None):
