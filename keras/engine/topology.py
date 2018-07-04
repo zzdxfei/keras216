@@ -1574,6 +1574,8 @@ class Container(Layer):
         self._output_shape_cache = {}
 
         # User-provided arguments validation.
+        # x是一个keras张量, inputs是一个keras张量的列表
+        # TODO(zzdxfei) work here
         for x in self.inputs:
             # Check that x is a Keras tensor.
             if not hasattr(x, '_keras_history'):
@@ -1581,7 +1583,9 @@ class Container(Layer):
                 raise TypeError('Input tensors to a ' + cls_name + ' ' +
                                 'must be Keras tensors. Found: ' + str(x) +
                                 ' (missing Keras metadata).')
+
             # Check that x is an input tensor.
+            # layer是作用于这个张量的层
             layer, node_index, tensor_index = x._keras_history
             if len(layer._inbound_nodes) > 1 or (layer._inbound_nodes and layer._inbound_nodes[0].inbound_layers):
                 cls_name = self.__class__.__name__
@@ -1678,7 +1682,6 @@ class Container(Layer):
         layer_indices = {}  # dict {layer: index in traversal}
         nodes_in_decreasing_depth = []
 
-        # TODO(zzdxfei) work here
 
         def build_map_of_graph(tensor, finished_nodes, nodes_in_progress,
                                layer=None, node_index=None, tensor_index=None):
