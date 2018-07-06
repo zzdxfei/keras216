@@ -79,10 +79,16 @@ class InputSpec(object):
 class Node(object):
     """A `Node` describes the connectivity between two layers.
 
+    Node描述了层之间的连接。
+
     Each time a layer is connected to some new input,
     a node is added to `layer._inbound_nodes`.
     Each time the output of a layer is used by another layer,
     a node is added to `layer._outbound_nodes`.
+
+    一个层连接新的input，一个node添加到_inbound_nodes;
+    一个层的输出被另外的层使用，一个node添加到_outbound_nodes。
+    # TODO(zzdxfei) work here
 
     # Arguments
         outbound_layer: the layer that takes
