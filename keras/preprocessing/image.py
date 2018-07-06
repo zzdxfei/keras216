@@ -1114,6 +1114,8 @@ class NumpyArrayIterator(Iterator):
                              'should have the same length. '
                              'Found: x.shape = %s, y.shape = %s' %
                              (np.asarray(x).shape, np.asarray(y).shape))
+
+        # 处理子集'training', 'validation'
         if subset is not None:
             if subset not in {'training', 'validation'}:
                 raise ValueError('Invalid subset name:', subset,
@@ -1153,12 +1155,17 @@ class NumpyArrayIterator(Iterator):
         self.save_format = save_format
         super(NumpyArrayIterator, self).__init__(x.shape[0], batch_size, shuffle, seed)
 
+    # 选取索引在index_array中的样本
     def _get_batches_of_transformed_samples(self, index_array):
+        # 构造一个空的数组
         batch_x = np.zeros(tuple([len(index_array)] + list(self.x.shape)[1:]),
                            dtype=K.floatx())
         for i, j in enumerate(index_array):
+            # 原始样本
             x = self.x[j]
+            # 对x进行数据增强
             x = self.image_data_generator.random_transform(x.astype(K.floatx()))
+            # 对x进行归一化
             x = self.image_data_generator.standardize(x)
             batch_x[i] = x
         if self.save_to_dir:
@@ -1169,6 +1176,7 @@ class NumpyArrayIterator(Iterator):
                                                                   hash=np.random.randint(1e4),
                                                                   format=self.save_format)
                 img.save(os.path.join(self.save_to_dir, fname))
+        # 选取y
         if self.y is None:
             return batch_x
         batch_y = self.y[index_array]
