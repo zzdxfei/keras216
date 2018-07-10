@@ -211,20 +211,28 @@ class Node(object):
 
 class Layer(object):
     """Abstract base layer class.
+    layer的抽象基类
 
     # Properties
         name: String, must be unique within a model.
+
+        # 输入tensor的参数
         input_spec: List of InputSpec class instances
             each entry describes one required input:
                 - ndim
                 - dtype
             A layer with `n` input tensors must have
             an `input_spec` of length `n`.
+
+        # 该层的参数是否进行更新
         trainable: Boolean, whether the layer weights
             will be updated during training.
+
+        # TODO(zzdxfei) ???
         uses_learning_phase: Whether any operation
             of the layer uses `K.in_training_phase()`
             or `K.in_test_phase()`.
+
         input_shape: Shape tuple. Provided for convenience,
             but note that there may be cases in which this
             attribute is ill-defined (e.g. a shared layer
@@ -235,13 +243,22 @@ class Layer(object):
         output_shape: Shape tuple. See above.
         inbound_nodes: List of nodes.
         outbound_nodes: List of nodes.
+
+        # 注意共享层的情况
         input, output: Input/output tensor(s). Note that if the layer is used
             more than once (shared layer), this is ill-defined
             and will raise an exception. In such cases, use
             `layer.get_input_at(node_index)`.
+
         input_mask, output_mask: Same as above, for masks.
+
+        # 训练参数
         trainable_weights: List of variables.
+
+        # 非训练参数
         non_trainable_weights: List of variables.
+
+        # 参数
         weights: The concatenation of the lists trainable_weights and
             non_trainable_weights (in this order).
 
@@ -311,6 +328,8 @@ class Layer(object):
         for kwarg in kwargs:
             if kwarg not in allowed_kwargs:
                 raise TypeError('Keyword argument not understood:', kwarg)
+
+        # 构造层的名字
         name = kwargs.get('name')
         if not name:
             prefix = self.__class__.__name__
@@ -342,6 +361,7 @@ class Layer(object):
         if 'weights' in kwargs:
             self._initial_weights = kwargs['weights']
         else:
+            # initial weights置None
             self._initial_weights = None
 
     @staticmethod
@@ -412,6 +432,7 @@ class Layer(object):
                    trainable=True,
                    constraint=None):
         """Adds a weight variable to the layer.
+        给层添加weight变量
 
         # Arguments
             name: String, the name for the weight variable.
@@ -430,6 +451,7 @@ class Layer(object):
         initializer = initializers.get(initializer)
         if dtype is None:
             dtype = K.floatx()
+        # 构建一个变量
         weight = K.variable(initializer(shape),
                             dtype=dtype,
                             name=name,
@@ -444,6 +466,8 @@ class Layer(object):
 
     def assert_input_compatibility(self, inputs):
         """Checks compatibility between the layer and provided inputs.
+
+        检测输入和该层是否兼容
 
         This checks that the tensor(s) `input`
         verify the input assumptions of the layer
@@ -560,6 +584,7 @@ class Layer(object):
         """
         return inputs
 
+    # TODO(zzdxfei) work here
     def __call__(self, inputs, **kwargs):
         """Wrapper around self.call(), for handling internal references.
 
