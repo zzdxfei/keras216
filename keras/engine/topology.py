@@ -88,7 +88,6 @@ class Node(object):
 
     一个层连接新的input，一个node添加到_inbound_nodes;
     一个层的输出被另外的层使用，一个node添加到_outbound_nodes。
-    # TODO(zzdxfei) work here
 
     # Arguments
         outbound_layer: the layer that takes
@@ -97,14 +96,17 @@ class Node(object):
             method of the layer was called).
         inbound_layers: a list of layers, the same length as `input_tensors`,
             the layers from where `input_tensors` originate.
+            # 和input_tensors一一对应
         node_indices: a list of integers, the same length as `inbound_layers`.
             `node_indices[i]` is the origin node of `input_tensors[i]`
+            # 指示是一个层中的哪个节点，因为一个层因为共享可能会有多个节点
             (necessary since each inbound layer might have several nodes,
             e.g. if the layer is being shared with a different data stream).
         tensor_indices: a list of integers,
             the same length as `inbound_layers`.
             `tensor_indices[i]` is the index of `input_tensors[i]` within the
             output of the inbound layer
+            # 指示是一个层中的哪个输出，一个层可能会有多个tensor输出.
             (necessary since each inbound layer might
             have multiple tensor outputs, with each one being
             independently manipulable).
@@ -122,6 +124,7 @@ class Node(object):
 
     `input_tensors[i] == inbound_layers[i]._inbound_nodes[node_indices[i]].output_tensors[tensor_indices[i]]`
 
+    # 一个node的添加作用于两个层
     A node from layer A to layer B is added to:
         A._outbound_nodes
         B._inbound_nodes
@@ -138,20 +141,26 @@ class Node(object):
         # and turns them into a list of output tensors.
         # the current node will be added to
         # the inbound_nodes of outbound_layer.
+        # input -> output
         self.outbound_layer = outbound_layer
 
+        # 下面的三个属性描述了input的来源
         # The following 3 properties describe where
         # the input tensors come from: which layers,
         # and for each layer, which node and which
         # tensor output of each node.
 
         # List of layer instances.
+        # 哪个层
         self.inbound_layers = inbound_layers
         # List of integers, 1:1 mapping with inbound_layers.
+        # 哪个节点
         self.node_indices = node_indices
+        # 哪个输出tensor
         # List of integers, 1:1 mapping with inbound_layers.
         self.tensor_indices = tensor_indices
 
+        # current layer的输入和输出tensor
         # Following 2 properties:
         # tensor inputs and outputs of outbound_layer.
 
@@ -160,12 +169,14 @@ class Node(object):
         # List of tensors, created by outbound_layer.call().
         self.output_tensors = output_tensors
 
+        # current layer的输入和输出mask
         # Following 2 properties: input and output masks.
         # List of tensors, 1:1 mapping with input_tensor.
         self.input_masks = input_masks
         # List of tensors, created by outbound_layer.compute_mask().
         self.output_masks = output_masks
 
+        # current layer的输入和输出shape
         # Following 2 properties: input and output shapes.
 
         # List of shape tuples, shapes of input_tensors.
@@ -177,9 +188,12 @@ class Node(object):
         self.arguments = arguments
 
         # Add nodes to all layers involved.
+        # 每个输入tensor对应的层添加outbound
         for layer in inbound_layers:
             if layer is not None:
                 layer._outbound_nodes.append(self)
+
+        # current layer添加inbound
         outbound_layer._inbound_nodes.append(self)
 
     def get_config(self):
