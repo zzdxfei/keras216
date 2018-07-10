@@ -442,6 +442,7 @@ def _weighted_masked_objective(fn):
             Scalar tensor.
         """
         # score_array has ndim >= 2
+        # shape is (batch,)，每一行的均值
         score_array = fn(y_true, y_pred)
         if mask is not None:
             # Cast the mask to floatX to avoid float64 upcasting in Theano
@@ -455,14 +456,17 @@ def _weighted_masked_objective(fn):
         # apply sample weighting
         if weights is not None:
             # reduce score_array to same ndim as weight array
-            # 返回轴的个数
+            # 返回轴的个数 1
             ndim = K.ndim(score_array)
+            # 1
             weight_ndim = K.ndim(weights)
+            # 对score_array中多余的维度求均值
             score_array = K.mean(score_array, axis=list(range(weight_ndim, ndim)))
             score_array *= weights
             # K.not_equal返回一个bool类型的Tensor
             # 返回有效样本的均值
             score_array /= K.mean(K.cast(K.not_equal(weights, 0), K.floatx()))
+        # 返回所有元素的均值
         return K.mean(score_array)
     return weighted
 
@@ -891,7 +895,7 @@ class Model(Container):
                 # 输出
                 y_pred = self.outputs[i]
 
-                # 损失计算函数
+                # 损失*函数*
                 weighted_loss = weighted_losses[i]
 
                 # 样本权重

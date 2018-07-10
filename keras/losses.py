@@ -11,6 +11,7 @@ from .utils.generic_utils import serialize_keras_object
 
 
 def mean_squared_error(y_true, y_pred):
+    # 对每个样本的每一行求均值
     return K.mean(K.square(y_pred - y_true), axis=-1)
 
 
