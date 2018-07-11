@@ -212,6 +212,7 @@ class Node(object):
 class Layer(object):
     """Abstract base layer class.
     layer的抽象基类
+    first read finished.
 
     # Properties
         name: String, must be unique within a model.
@@ -869,6 +870,7 @@ class Layer(object):
                              ' at node ' + str(node_index) +
                              ', but the layer has only ' +
                              str(len(self._inbound_nodes)) + ' inbound nodes.')
+        # 通过_inbound_nodes获得属性
         values = getattr(self._inbound_nodes[node_index], attr)
         if len(values) == 1:
             return values[0]
