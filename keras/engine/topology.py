@@ -750,6 +750,7 @@ class Layer(object):
                 tensor_indices.append(None)
 
         # Create node, add it to inbound nodes.
+        # 对产生input的层添加outbound nodes，对本层添加inbound nodes
         Node(
             self,
             inbound_layers=inbound_layers,
@@ -770,6 +771,7 @@ class Layer(object):
             uses_lp = any([getattr(x, '_uses_learning_phase', False) for x in input_tensors])
             uses_lp = getattr(self, 'uses_learning_phase', False) or uses_lp
             output_tensors[i]._uses_learning_phase = getattr(output_tensors[i], '_uses_learning_phase', False) or uses_lp
+            # 由_inbound_nodes指示
             output_tensors[i]._keras_history = (self,
                                                 len(self._inbound_nodes) - 1,
                                                 i)
