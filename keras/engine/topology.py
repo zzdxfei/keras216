@@ -584,7 +584,6 @@ class Layer(object):
         """
         return inputs
 
-    # TODO(zzdxfei) work here
     def __call__(self, inputs, **kwargs):
         """Wrapper around self.call(), for handling internal references.
 
@@ -633,6 +632,7 @@ class Layer(object):
                                          'and thus cannot be built. '
                                          'You can build it manually via: '
                                          '`layer.build(batch_input_shape)`')
+                # 每个带参数的层都要实现build函数
                 if len(input_shapes) == 1:
                     self.build(input_shapes[0])
                 else:
@@ -648,8 +648,11 @@ class Layer(object):
             self.assert_input_compatibility(inputs)
 
             # Handle mask propagation.
+            # 获得每个input对应的mask
             previous_mask = _collect_previous_mask(inputs)
+
             user_kwargs = copy.copy(kwargs)
+
             if not _is_all_none(previous_mask):
                 # The previous layer generated a mask.
                 if has_arg(self.call, 'mask'):
@@ -666,6 +669,7 @@ class Layer(object):
 
             # If the layer returns tensors from its inputs, unmodified,
             # we copy them to avoid loss of tensor metadata.
+            # 进行深拷贝，避免原始数据丢失
             output_ls = _to_list(output)
             inputs_ls = _to_list(inputs)
             output_ls_copy = []
@@ -696,6 +700,7 @@ class Layer(object):
             # This also updates the layer history of the output tensor(s).
             # If the input tensor(s) had not previous Keras history,
             # this does nothing.
+            # 添加inbound node，保持对调用以及新创建的变量的跟踪。同时对output tensor进行更新
             self._add_inbound_node(input_tensors=inputs, output_tensors=output,
                                    input_masks=previous_mask, output_masks=output_mask,
                                    input_shapes=input_shape, output_shapes=output_shape,
@@ -2887,6 +2892,8 @@ def _is_all_none(iterable_or_element):
 
 def _collect_previous_mask(input_tensors):
     """Retrieves the output mask(s) of the previous node.
+
+    通过_keras_history获得每个input tensor对应的mask
 
     # Arguments
         input_tensors: A tensor or list of tensors.
