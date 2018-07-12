@@ -1608,6 +1608,7 @@ class Container(Layer):
         # list of layers (1 to 1 mapping with self.inputs,
         # hence the same layer might appear twice)
         # 输出
+        # 和keras_history中的信息对应
         self.output_layers = []
         self.output_layers_node_indices = []
         self.output_layers_tensor_indices = []
@@ -1629,7 +1630,6 @@ class Container(Layer):
 
         # User-provided arguments validation.
         # x是一个keras张量, inputs是一个keras张量的列表
-        # TODO(zzdxfei) work here
         for x in self.inputs:
             # Check that x is a Keras tensor.
             if not hasattr(x, '_keras_history'):
@@ -1639,7 +1639,7 @@ class Container(Layer):
                                 ' (missing Keras metadata).')
 
             # Check that x is an input tensor.
-            # layer是作用于这个张量的层
+            # layer是产生这个张量的层
             layer, node_index, tensor_index = x._keras_history
             if len(layer._inbound_nodes) > 1 or (layer._inbound_nodes and layer._inbound_nodes[0].inbound_layers):
                 cls_name = self.__class__.__name__
@@ -1656,6 +1656,7 @@ class Container(Layer):
                               'instantiated via `tensor = Input(shape)`.\n'
                               'The tensor that caused the issue was: ' +
                               str(x.name))
+        # 对每个输出进行检查
         for x in self.outputs:
             if not hasattr(x, '_keras_history'):
                 cls_name = self.__class__.__name__
@@ -1677,12 +1678,14 @@ class Container(Layer):
             masks.append(mask)
         mask_cache_key = ','.join([str(id(x)) for x in self.inputs])
         mask_cache_key += '_' + ','.join([str(id(x)) for x in masks])
+
         masks = []
         for x in self.outputs:
             layer, node_index, tensor_index = x._keras_history
             node = layer._inbound_nodes[node_index]
             mask = node.output_masks[tensor_index]
             masks.append(mask)
+
         if len(masks) == 1:
             mask = masks[0]
         else:
@@ -1690,10 +1693,12 @@ class Container(Layer):
         self._output_mask_cache[mask_cache_key] = mask
 
         # Build self.input_layers:
+        # 构建输入层
         for x in self.inputs:
             layer, node_index, tensor_index = x._keras_history
             # It's supposed to be an input layer, so only one node
             # and one tensor output.
+            # 输入层必须仅包含一个node，一个output
             assert node_index == 0
             assert tensor_index == 0
             self.input_layers.append(layer)
@@ -1740,6 +1745,8 @@ class Container(Layer):
         def build_map_of_graph(tensor, finished_nodes, nodes_in_progress,
                                layer=None, node_index=None, tensor_index=None):
             """Builds a map of the graph of layers.
+
+            递归的构建图
 
             This recursively updates the map `layer_indices`,
             the list `nodes_in_decreasing_depth` and the set `container_nodes`.
@@ -2246,6 +2253,8 @@ class Container(Layer):
 
     def run_internal_graph(self, inputs, masks=None):
         """Computes output tensors for new inputs.
+
+        对新的输入计算输出
 
         # Note:
             - Expects `inputs` to be a list (potentially with 1 element).
