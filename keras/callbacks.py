@@ -666,6 +666,7 @@ class TensorBoard(Callback):
             for histograms computation.
         write_images: whether to write model weights to visualize as
             image in TensorBoard.
+        这里的images指的是模型的权重。
         embeddings_freq: frequency (in epochs) at which selected embedding
             layers will be saved.
         embeddings_layer_names: a list of names of layers to keep eye on. If
