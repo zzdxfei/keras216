@@ -81,6 +81,8 @@ class Node(object):
 
     Node描述了层之间的连接。
 
+    `in 产生了`   `out 被使用`
+
     Each time a layer is connected to some new input,
     a node is added to `layer._inbound_nodes`.
     Each time the output of a layer is used by another layer,
@@ -94,19 +96,20 @@ class Node(object):
             `input_tensors` and turns them into `output_tensors`
             (the node gets created when the `call`
             method of the layer was called).
+            新添加的层
         inbound_layers: a list of layers, the same length as `input_tensors`,
             the layers from where `input_tensors` originate.
-            # 和input_tensors一一对应
+            和input_tensors一一对应，也就是前一层
         node_indices: a list of integers, the same length as `inbound_layers`.
             `node_indices[i]` is the origin node of `input_tensors[i]`
-            # 指示是一个层中的哪个节点，因为一个层因为共享可能会有多个节点
+            指示是一个层中的哪个节点，因为一个层因为共享可能会有多个节点
             (necessary since each inbound layer might have several nodes,
             e.g. if the layer is being shared with a different data stream).
         tensor_indices: a list of integers,
             the same length as `inbound_layers`.
             `tensor_indices[i]` is the index of `input_tensors[i]` within the
             output of the inbound layer
-            # 指示是一个层中的哪个输出，一个层可能会有多个tensor输出.
+            指示是一个层中的哪个输出，一个层可能会有多个tensor输出.
             (necessary since each inbound layer might
             have multiple tensor outputs, with each one being
             independently manipulable).
@@ -188,12 +191,12 @@ class Node(object):
         self.arguments = arguments
 
         # Add nodes to all layers involved.
-        # 每个输入tensor对应的层添加outbound
+        # 每个输入tensor对应的层添加一个Node到outbound，因为被使用了
         for layer in inbound_layers:
             if layer is not None:
                 layer._outbound_nodes.append(self)
 
-        # current layer添加inbound
+        # current layer添加inbound，因为产生了
         outbound_layer._inbound_nodes.append(self)
 
     def get_config(self):
