@@ -215,12 +215,11 @@ class Node(object):
 class Layer(object):
     """Abstract base layer class.
     layer的抽象基类
-    first read finished.
 
     # Properties
         name: String, must be unique within a model.
 
-        # 输入tensor的参数
+        输入tensor的参数
         input_spec: List of InputSpec class instances
             each entry describes one required input:
                 - ndim
@@ -228,7 +227,7 @@ class Layer(object):
             A layer with `n` input tensors must have
             an `input_spec` of length `n`.
 
-        # 该层的参数是否进行更新
+        该层的参数是否进行更新
         trainable: Boolean, whether the layer weights
             will be updated during training.
 
@@ -237,6 +236,7 @@ class Layer(object):
             of the layer uses `K.in_training_phase()`
             or `K.in_test_phase()`.
 
+        输入tensor的形状，如果是共享层，会触发异常。
         input_shape: Shape tuple. Provided for convenience,
             but note that there may be cases in which this
             attribute is ill-defined (e.g. a shared layer
@@ -245,10 +245,11 @@ class Layer(object):
             Prefer using `layer.get_input_shape_for(input_shape)`,
             or `layer.get_input_shape_at(node_index)`.
         output_shape: Shape tuple. See above.
+
         inbound_nodes: List of nodes.
         outbound_nodes: List of nodes.
 
-        # 注意共享层的情况
+        注意共享层的情况
         input, output: Input/output tensor(s). Note that if the layer is used
             more than once (shared layer), this is ill-defined
             and will raise an exception. In such cases, use
@@ -320,6 +321,7 @@ class Layer(object):
         # note that 'dtype', 'input_shape' and 'batch_input_shape'
         # are only applicable to input layers: do not pass these keywords
         # to non-input layers.
+        # 可以使用的参数
         allowed_kwargs = {'input_shape',
                           'batch_input_shape',
                           'batch_size',
@@ -336,11 +338,15 @@ class Layer(object):
         # 构造层的名字
         name = kwargs.get('name')
         if not name:
+            # 层类型的名字
             prefix = self.__class__.__name__
             name = _to_snake_case(prefix) + '_' + str(K.get_uid(prefix))
         self.name = name
 
         self.trainable = kwargs.get('trainable', True)
+        
+        # 如果是第一层，会首先创建一个input层，然后再插入当前层
+        # 获得网络输入的大小信息
         if 'input_shape' in kwargs or 'batch_input_shape' in kwargs:
             # In this case we will later create an input layer
             # to insert before the current layer
@@ -362,6 +368,7 @@ class Layer(object):
                 dtype = K.floatx()
             self.dtype = dtype
 
+        # 获得初始化权重
         if 'weights' in kwargs:
             self._initial_weights = kwargs['weights']
         else:
@@ -440,13 +447,19 @@ class Layer(object):
 
         # Arguments
             name: String, the name for the weight variable.
+                  变量的名字
             shape: The shape tuple of the weight.
+                  变量的形状
             dtype: The dtype of the weight.
+                  变量的类型
             initializer: An Initializer instance (callable).
+                  变量初始化函数
             regularizer: An optional Regularizer instance.
+                  正则化项
             trainable: A boolean, whether the weight should
                 be trained via backprop or not (assuming
                 that the layer itself is also trainable).
+                  是否可训练
             constraint: An optional Constraint instance.
 
         # Returns
@@ -593,6 +606,7 @@ class Layer(object):
 
         If a Keras tensor is passed:
             - We call self._add_inbound_node().
+              在添加了本层的inbound node的同时，也添加了前一层的outbound node
             - If necessary, we `build` the layer to match
                 the _keras_shape of the input(s).
             - We update the _keras_shape of every input tensor with
@@ -615,6 +629,8 @@ class Layer(object):
         """
         if isinstance(inputs, list):
             inputs = inputs[:]
+
+        # 在本层的命名空间中
         with K.name_scope(self.name):
             # Handle laying building (weight creating, input spec locking).
             if not self.built:
@@ -636,7 +652,7 @@ class Layer(object):
                                          'and thus cannot be built. '
                                          'You can build it manually via: '
                                          '`layer.build(batch_input_shape)`')
-                # 每个带参数的层都要实现build函数
+                # 每个带参数的层都要实现build函数，这个类仅是个抽象基类
                 if len(input_shapes) == 1:
                     self.build(input_shapes[0])
                 else:
@@ -673,7 +689,7 @@ class Layer(object):
 
             # If the layer returns tensors from its inputs, unmodified,
             # we copy them to avoid loss of tensor metadata.
-            # 进行深拷贝，避免原始数据丢失
+            # 如果是原地变换，进行深拷贝，避免原始数据丢失
             output_ls = _to_list(output)
             inputs_ls = _to_list(inputs)
             output_ls_copy = []
@@ -742,6 +758,7 @@ class Layer(object):
         inbound_layers = []
         node_indices = []
         tensor_indices = []
+        # 遍历每一个input tensor，获得产生了这个tensor的层信息
         for x in input_tensors:
             if hasattr(x, '_keras_history'):
                 inbound_layer, node_index, tensor_index = x._keras_history
@@ -756,7 +773,7 @@ class Layer(object):
         # Create node, add it to inbound nodes.
         # 对产生input的层添加outbound nodes，对本层添加inbound nodes
         Node(
-            self,
+            self,  # 本层
             inbound_layers=inbound_layers,
             node_indices=node_indices,
             tensor_indices=tensor_indices,
@@ -770,18 +787,22 @@ class Layer(object):
         )
 
         # Update tensor history, _keras_shape and _uses_learning_phase.
+        # 更新tensor中的信息
         for i in range(len(output_tensors)):
             output_tensors[i]._keras_shape = output_shapes[i]
             uses_lp = any([getattr(x, '_uses_learning_phase', False) for x in input_tensors])
             uses_lp = getattr(self, 'uses_learning_phase', False) or uses_lp
             output_tensors[i]._uses_learning_phase = getattr(output_tensors[i], '_uses_learning_phase', False) or uses_lp
             # 由_inbound_nodes指示
+            # 产生这个tensor的层，节点编号，tensor编号
             output_tensors[i]._keras_history = (self,
                                                 len(self._inbound_nodes) - 1,
                                                 i)
 
     def compute_output_shape(self, input_shape):
         """Computes the output shape of the layer.
+
+        计算层的输出形状
 
         Assumes that the layer will be built
         to match that input shape provided.
@@ -834,6 +855,9 @@ class Layer(object):
     def build(self, input_shape):
         """Creates the layer weights.
 
+        创建层的权重
+        所有含有参数的层必须实现该函数
+
         Must be implemented on all layers that have weights.
 
         # Arguments
@@ -875,6 +899,7 @@ class Layer(object):
                              str(len(self._inbound_nodes)) + ' inbound nodes.')
         # 通过_inbound_nodes获得属性
         values = getattr(self._inbound_nodes[node_index], attr)
+        # 返回一个值或者一个列表
         if len(values) == 1:
             return values[0]
         else:
@@ -984,6 +1009,8 @@ class Layer(object):
     def input(self):
         """Retrieves the input tensor(s) of a layer.
 
+        仅适用于层中仅含有一个inbound node的层
+
         Only applicable if the layer has exactly one inbound node,
         i.e. if it is connected to one incoming layer.
 
@@ -1009,6 +1036,8 @@ class Layer(object):
     @property
     def output(self):
         """Retrieves the output tensor(s) of a layer.
+
+        仅适用于层中仅含有一个inbound node的层
 
         Only applicable if the layer has exactly one inbound node,
         i.e. if it is connected to one incoming layer.
@@ -1036,6 +1065,8 @@ class Layer(object):
     def input_mask(self):
         """Retrieves the input mask tensor(s) of a layer.
 
+        仅适用于层中仅含有一个inbound node的层
+
         Only applicable if the layer has exactly one inbound node,
         i.e. if it is connected to one incoming layer.
 
@@ -1061,6 +1092,8 @@ class Layer(object):
     def output_mask(self):
         """Retrieves the output mask tensor(s) of a layer.
 
+        仅适用于层中仅含有一个inbound node的层
+
         Only applicable if the layer has exactly one inbound node,
         i.e. if it is connected to one incoming layer.
 
@@ -1085,6 +1118,8 @@ class Layer(object):
     @property
     def input_shape(self):
         """Retrieves the input shape tuple(s) of a layer.
+
+        仅适用于层中仅含有一个inbound node的层
 
         Only applicable if the layer has exactly one inbound node,
         i.e. if it is connected to one incoming layer.
