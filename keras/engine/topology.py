@@ -1386,6 +1386,8 @@ class Layer(object):
 class InputLayer(Layer):
     """Layer to be used as an entry point into a graph.
 
+    该层作为图的入口
+
     It can either wrap an existing tensor (pass an `input_tensor` argument)
     or create its a placeholder tensor (pass arguments `input_shape`
     or `batch_input_shape` as well as `dtype`).
@@ -1411,6 +1413,7 @@ class InputLayer(Layer):
             name = prefix + '_' + str(K.get_uid(prefix))
         super(InputLayer, self).__init__(dtype=dtype, name=name)
 
+        # 不训练
         self.trainable = False
         self.built = True
         self.sparse = sparse
@@ -1486,6 +1489,8 @@ def Input(shape=None, batch_shape=None,
           name=None, dtype=None, sparse=False,
           tensor=None):
     """`Input()` is used to instantiate a Keras tensor.
+
+    用于实例化一个keras tensor
 
     A Keras tensor is a tensor object from the underlying backend
     (Theano, TensorFlow or CNTK), which we augment with certain
