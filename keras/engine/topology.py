@@ -1610,24 +1610,25 @@ class Container(Layer):
 
         self.supports_masking = False
         self.trainable = True
+
         self._per_input_losses = {}
         self._per_input_updates = {}
 
         # Container-specific properties.
-        # inputs属性
+        # 将inputs转化为列表
         if isinstance(inputs, (list, tuple)):
             self.inputs = list(inputs)  # Tensor or list of tensors.
         else:
             self.inputs = [inputs]
 
-        # outputs属性
+        # 将outputs转化为列表
         if isinstance(outputs, (list, tuple)):
             self.outputs = list(outputs)
         else:
             self.outputs = [outputs]
 
         # Check for redundancy in inputs.
-        # 保证输入的唯一性
+        # 保证每个tensor的唯一性
         if len(set(self.inputs)) != len(self.inputs):
             raise ValueError('The list of inputs passed to the model '
                              'is redundant. '
@@ -1648,16 +1649,17 @@ class Container(Layer):
         self.input_layers = []
         self.input_layers_node_indices = []
         self.input_layers_tensor_indices = []
-        # list of layers (1 to 1 mapping with self.inputs,
+
+        # list of layers (1 to 1 mapping with self.outputs,
         # hence the same layer might appear twice)
-        # 输出
-        # 和keras_history中的信息对应
+        # 输出 和keras_history中的信息对应
         self.output_layers = []
         self.output_layers_node_indices = []
         self.output_layers_tensor_indices = []
 
         # all layers in order of horizontal graph traversal.
         # Entries are unique. Includes input and output layers.
+        # 所有层的列表，包括输入和输出层
         self.layers = []
 
         # This is for performance optimization
@@ -1667,6 +1669,7 @@ class Container(Layer):
         # output masks and output shapes in one pass,
         # then cache them here. When one of these output is queried later,
         # we retrieve it from there instead of recomputing it.
+        # 用于性能优化，当对这些输出查询时，从此处获得
         self._output_mask_cache = {}
         self._output_tensor_cache = {}
         self._output_shape_cache = {}
@@ -1705,7 +1708,9 @@ class Container(Layer):
                 cls_name = self.__class__.__name__
                 raise TypeError('Output tensors to a ' + cls_name + ' must be '
                                 'Keras tensors. Found: ' + str(x))
+
         # Build self.output_layers:
+        # 获取输出层
         for x in self.outputs:
             layer, node_index, tensor_index = x._keras_history
             self.output_layers.append(layer)
@@ -1713,6 +1718,8 @@ class Container(Layer):
             self.output_layers_tensor_indices.append(tensor_index)
 
         # Fill in the output mask cache.
+        # 添加输出层的mask
+        # 获得key
         masks = []
         for x in self.inputs:
             layer, node_index, tensor_index = x._keras_history
@@ -1722,6 +1729,7 @@ class Container(Layer):
         mask_cache_key = ','.join([str(id(x)) for x in self.inputs])
         mask_cache_key += '_' + ','.join([str(id(x)) for x in masks])
 
+        # 获得value
         masks = []
         for x in self.outputs:
             layer, node_index, tensor_index = x._keras_history
@@ -1733,10 +1741,11 @@ class Container(Layer):
             mask = masks[0]
         else:
             mask = masks
+        # 输入组成的key -> 输出mask
         self._output_mask_cache[mask_cache_key] = mask
 
         # Build self.input_layers:
-        # 构建输入层
+        # 获取输入层信息
         for x in self.inputs:
             layer, node_index, tensor_index = x._keras_history
             # It's supposed to be an input layer, so only one node
@@ -1751,6 +1760,7 @@ class Container(Layer):
         # Build self.input_names and self.output_names.
         self.input_names = []
         self.output_names = []
+        # 外部提供的输入层
         self._feed_input_names = []
         self._feed_inputs = []
         self._feed_input_shapes = []
@@ -1785,6 +1795,7 @@ class Container(Layer):
         nodes_in_decreasing_depth = []
 
 
+        # TODO(zzdxfei) work here
         def build_map_of_graph(tensor, finished_nodes, nodes_in_progress,
                                layer=None, node_index=None, tensor_index=None):
             """Builds a map of the graph of layers.
