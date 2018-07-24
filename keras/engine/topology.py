@@ -1795,7 +1795,6 @@ class Container(Layer):
         nodes_in_decreasing_depth = []
 
 
-        # TODO(zzdxfei) work here
         def build_map_of_graph(tensor, finished_nodes, nodes_in_progress,
                                layer=None, node_index=None, tensor_index=None):
             """Builds a map of the graph of layers.
@@ -1819,11 +1818,13 @@ class Container(Layer):
             # Raises
                 RuntimeError: if a cycle is detected.
             """
+            # 从_keras_history推断
             if not layer or node_index is None or tensor_index is None:
                 layer, node_index, tensor_index = tensor._keras_history
             node = layer._inbound_nodes[node_index]
 
             # Prevent cycles.
+            # 避免循环图
             if node in nodes_in_progress:
                 raise RuntimeError(
                     'The tensor ' + str(tensor) + ' at layer "' +
@@ -1837,6 +1838,7 @@ class Container(Layer):
             container_nodes.add(self._node_key(layer, node_index))
 
             # Store the traversal order for layer sorting.
+            # 字典(layer, index)
             if layer not in layer_indices:
                 layer_indices[layer] = len(layer_indices)
 
@@ -1851,15 +1853,19 @@ class Container(Layer):
                 build_map_of_graph(x, finished_nodes, nodes_in_progress,
                                    layer, node_index, tensor_index)
 
+            # node构造完毕，添加到finished_nodes
             finished_nodes.add(node)
+            # 从nodes_in_progress去除完成的节点
             nodes_in_progress.remove(node)
 
+            # 网络中前面的层节点靠前
             nodes_in_decreasing_depth.append(node)
 
         finished_nodes = set()
         nodes_in_progress = set()
         for x in self.outputs:
             build_map_of_graph(x, finished_nodes, nodes_in_progress)
+
 
         for node in reversed(nodes_in_decreasing_depth):
             # If the depth is not set, the node has no outbound nodes (depth 0).
@@ -1883,6 +1889,7 @@ class Container(Layer):
                 nodes_depths[inbound_node] = max(depth + 1, previous_depth)
 
         # Build a dict {depth: list of nodes with this depth}
+        # 从深度查询节点
         nodes_by_depth = {}
         for node, depth in nodes_depths.items():
             if depth not in nodes_by_depth:
@@ -1890,6 +1897,7 @@ class Container(Layer):
             nodes_by_depth[depth].append(node)
 
         # Build a dict {depth: list of layers with this depth}
+        # 从深度获得层
         layers_by_depth = {}
         for layer, depth in layers_depths.items():
             if depth not in layers_by_depth:
@@ -1959,10 +1967,11 @@ class Container(Layer):
         # Layer parameters.
         # The new container starts with a single inbound node
         # for its inputs, and no outbound nodes.
+        # 在调用calls时添加
         self._outbound_nodes = []  # Will be appended to by future calls to __call__
         self._inbound_nodes = []  # Will be appended to below, and by future calls to __call__
         # Create the node linking internal inputs to internal outputs.
-        Node(outbound_layer=self,
+        Node(outbound_layer=self,  # 此处为self，为网络
              inbound_layers=[],
              node_indices=[],
              tensor_indices=[],
