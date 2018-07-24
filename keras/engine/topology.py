@@ -2010,6 +2010,7 @@ class Container(Layer):
         # based on layer names, because names can potentially
         # be changed at any point by the user
         # without the container being notified of it.
+        # index优先
         if index is not None:
             if len(self.layers) <= index:
                 raise ValueError('Was asked to retrieve layer at index ' +
@@ -2021,6 +2022,7 @@ class Container(Layer):
             if not name:
                 raise ValueError('Provide either a layer name or layer index.')
 
+        # 遍历获得层
         for layer in self.layers:
             if layer.name == name:
                 return layer
